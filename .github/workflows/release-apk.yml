@@ -1,0 +1,136 @@
+name: Release Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0, v1.2.3, etc.)
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+    working-directory: mobile
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get Version from Tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+      
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check Android project exists
+        id: check-android
+        run: |
+          if [ -d "android" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Android project not found!"
+            echo "Run: npx react-native init AdEarnPro"
+            exit 1
+          fi
+      
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+      
+      - name: Build Release APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+  create-release:
+    needs: build-release-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download Release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: app-release.apk
+          path: ./release-artifacts
+      
+      - name: Generate Release Notes
+        id: release_notes
+        uses: release-drafter/release-drafter@v5
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./release-artifacts/app-release.apk
+          name: Release v${{ needs.build-release-apk.outputs.version }}
+          body: |
+            ## 📱 AdEarn Pro Android App
+            
+            ### Version: ${{ needs.build-release-apk.outputs.version }}
+            
+            ### 📥 Installation
+            1. Download the APK file above
+            2. Enable "Install from Unknown Sources" in your Android settings
+            3. Open the APK file and install
+            4. Launch AdEarn Pro and sign in with Google
+            
+            ### ⚠️ Requirements
+            - Android 8.0 (API 26) or higher
+            - Google account for authentication
+            
+            ### 📝 What's Changed
+            ${{ steps.release_notes.outputs.body }}
+            
+            ### 🔗 Links
+            - [Privacy Policy](#)
+            - [Terms of Service](#)
+            - [Report Issues](https://github.com/${{ github.repository }}/issues)
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-success:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release Complete
+        run: |
+          echo "✅ Release v${{ needs.create-release.result }} created successfully!"
+          echo "📱 Download APK: https://github.com/${{ github.repository }}/releases"

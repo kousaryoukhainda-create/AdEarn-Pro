@@ -8,12 +8,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../store/auth.store';
 import { LoadingScreen } from '../components/common';
 import { AuthScreen } from '../screens/AuthScreen';
-// Import other screens (to be created)
-// import { DashboardScreen } from '../screens/DashboardScreen';
-// import { AdsScreen } from '../screens/AdsScreen';
-// import { WithdrawScreen } from '../screens/WithdrawScreen';
-// import { SettingsScreen } from '../screens/SettingsScreen';
-// import { AdminScreen } from '../screens/AdminScreen';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { AdsScreen } from '../screens/AdsScreen';
+import { WithdrawScreen } from '../screens/WithdrawScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,60 +68,27 @@ const TabNavigator = () => {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreenPlaceholder}
+        component={DashboardScreen}
         options={{ title: 'Dashboard' }}
       />
       <Tab.Screen
         name="Ads"
-        component={AdsScreenPlaceholder}
+        component={AdsScreen}
         options={{ title: 'Watch Ads' }}
       />
       <Tab.Screen
         name="Withdraw"
-        component={WithdrawScreenPlaceholder}
+        component={WithdrawScreen}
         options={{ title: 'Withdraw' }}
       />
       <Tab.Screen
         name="Settings"
-        component={SettingsScreenPlaceholder}
+        component={SettingsScreen}
         options={{ title: 'Settings' }}
       />
     </Tab.Navigator>
   );
 };
-
-// Placeholder screens (replace with actual implementations)
-function DashboardScreenPlaceholder() {
-  return (
-    <View style={placeholderStyles.container}>
-      <Text style={placeholderStyles.text}>Dashboard Screen</Text>
-    </View>
-  );
-}
-
-function AdsScreenPlaceholder() {
-  return (
-    <View style={placeholderStyles.container}>
-      <Text style={placeholderStyles.text}>Ads Screen</Text>
-    </View>
-  );
-}
-
-function WithdrawScreenPlaceholder() {
-  return (
-    <View style={placeholderStyles.container}>
-      <Text style={placeholderStyles.text}>Withdraw Screen</Text>
-    </View>
-  );
-}
-
-function SettingsScreenPlaceholder() {
-  return (
-    <View style={placeholderStyles.container}>
-      <Text style={placeholderStyles.text}>Settings Screen</Text>
-    </View>
-  );
-}
 
 // Main App Navigator
 export const AppNavigator = () => {
@@ -150,17 +115,3 @@ export const AppNavigator = () => {
     </NavigationContainer>
   );
 };
-
-const placeholderStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#050505',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    color: '#6b7280',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-});
