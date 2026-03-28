@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the platform",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user's unique ID" },
+        "email": { "type": "string", "description": "The user's email address" },
+        "balance": { "type": "number", "description": "The user's current balance" },
+        "totalEarned": { "type": "number", "description": "The user's total earnings" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "The user's role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user was created" }
+      },
+      "required": ["uid", "email", "balance", "totalEarned", "role", "createdAt"]
+    },
+    "Ad": {
+      "title": "Ad",
+      "description": "An advertisement to be watched",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The ad's unique ID" },
+        "title": { "type": "string", "description": "The ad's title" },
+        "description": { "type": "string", "description": "The ad's description" },
+        "reward": { "type": "number", "description": "The reward for watching the ad" },
+        "duration": { "type": "number", "description": "The duration in seconds the ad must be watched" },
+        "url": { "type": "string", "description": "The URL of the ad" },
+        "active": { "type": "boolean", "description": "Whether the ad is active" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the ad was created" }
+      },
+      "required": ["id", "title", "reward", "duration", "url", "active", "createdAt"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A withdrawal request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The withdrawal's unique ID" },
+        "userId": { "type": "string", "description": "The ID of the user who requested the withdrawal" },
+        "amount": { "type": "number", "description": "The amount requested" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "The status of the withdrawal" },
+        "method": { "type": "string", "description": "The withdrawal method" },
+        "details": { "type": "string", "description": "The withdrawal details (e.g., account number)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the withdrawal was requested" }
+      },
+      "required": ["id", "userId", "amount", "status", "method", "details", "createdAt"]
+    },
+    "AdView": {
+      "title": "AdView",
+      "description": "A record of an ad being watched",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The view's unique ID" },
+        "userId": { "type": "string", "description": "The ID of the user who watched the ad" },
+        "adId": { "type": "string", "description": "The ID of the ad that was watched" },
+        "reward": { "type": "number", "description": "The reward earned" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the ad was watched" }
+      },
+      "required": ["id", "userId", "adId", "reward", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/ads/{adId}": { "schema": "Ad", "description": "Available advertisements" },
+    "/withdrawals/{withdrawalId}": { "schema": "Withdrawal", "description": "Withdrawal requests" },
+    "/adViews/{viewId}": { "schema": "AdView", "description": "Ad viewing history" }
+  }
+}
