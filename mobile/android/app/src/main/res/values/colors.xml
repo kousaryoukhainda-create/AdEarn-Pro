@@ -1,0 +1,19 @@
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
+
+    <!-- AdEarn Pro brand colors -->
+    <color name="colorPrimary">#d4af37</color>
+    <color name="colorPrimaryDark">#b8860b</color>
+    <color name="colorAccent">#fbbf24</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="darkBg">#050505</color>
+    <color name="darkSurface">#0a0a0a</color>
+</resources>

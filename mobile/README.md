@@ -1,10 +1,54 @@
 # AdEarn Pro - Android App
 
-[![Build Status](https://github.com/yourusername/AdEarn-Pro-Android/actions/workflows/build.yml/badge.svg)](https://github.com/yourusername/AdEarn-Pro-Android/actions)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build Status](https://github.com/kousaryoukhainda-create/AdEarn-Pro/actions/workflows/build-apk.yml/badge.svg)](https://github.com/kousaryoukhainda-create/AdEarn-Pro/actions)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android-green.svg)](https://developer.android.com/)
 
 Premium earning platform - Watch ads and earn rewards on Android.
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
+
+```bash
+cd mobile
+npm install
+```
+
+### 2. Setup Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Add Android app with package name: `com.adearnpro.app`
+3. Download `google-services.json`
+4. Place in `android/app/google-services.json`
+
+### 3. Generate Keystore (for release builds)
+
+```bash
+cd android
+chmod +x generate-keystore.sh
+./generate-keystore.sh
+```
+
+### 4. Build Debug APK
+
+```bash
+cd android
+chmod +x gradlew
+./gradlew assembleDebug
+
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### 5. Install on Device
+
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+📖 **Full Setup Guide:** See [SETUP_ANDROID.md](SETUP_ANDROID.md)
+
+---
 
 ## Features
 
@@ -12,7 +56,7 @@ Premium earning platform - Watch ads and earn rewards on Android.
 - 📺 Watch ads to earn rewards
 - 💰 Withdraw to Jazz Cash, Easy Paisa, Naya Pay, Sada Pay
 - 📊 Real-time balance tracking
-- 🔔 Push notifications
+- 🔔 Push notifications (coming soon)
 - 🛡️ Enterprise-grade security with Cloud Functions validation
 
 ## Tech Stack
