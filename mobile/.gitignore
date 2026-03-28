@@ -1,0 +1,17 @@
+node_modules/
+.gradle/
+android/app/build/
+android/.gradle/
+ios/build/
+*.keystore
+*.jks
+.env
+.env.local
+.DS_Store
+*.orig
+*.log
+coverage/
+google-services.json
+GoogleService-Info.plist
+play-store-key.json
+keystore.jks

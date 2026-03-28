@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Ad, UserProfile, Withdrawal, AdView, AppSettings } from '../types';
 import { db } from '../firebase';
-import { collection, onSnapshot, query, orderBy, setDoc, deleteDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, setDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { motion } from 'motion/react';
 import { Plus, Trash2, Check, X, Users, Play, Wallet, ShieldCheck, ExternalLink, Clock, CheckCircle2, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
 import { cn, getEmbedUrl } from '../lib/utils';
@@ -72,6 +73,14 @@ export default function Admin() {
     };
   }, []);
 
+  // Initialize Cloud Functions
+  const functions = getFunctions();
+  const processWithdrawalFn = httpsCallable<{
+    withdrawalId: string;
+    status: 'approved' | 'rejected';
+    trxId?: string;
+  }, { success: boolean; message?: string }>(functions, 'processWithdrawal');
+
   const handleCreateAd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -109,112 +118,48 @@ export default function Admin() {
   };
 
   const handleWithdrawalAction = async (withdrawal: Withdrawal, status: 'approved' | 'rejected') => {
+    const trxId = trxInputs[withdrawal.id] || '';
+
+    if (status === 'approved' && !trxId) {
+      alert('Please enter a Transaction ID (TRX ID) before approving.');
+      return;
+    }
+
     try {
-      const statusUpdatedAt = new Date().toISOString();
-      const trxId = trxInputs[withdrawal.id] || '';
-
-      if (status === 'approved' && !trxId) {
-        alert('Please enter a Transaction ID (TRX ID) before approving.');
-        return;
-      }
-
-      await updateDoc(doc(db, 'withdrawals', withdrawal.id), { 
+      // Call Cloud Function for server-side processing
+      const result = await processWithdrawalFn({
+        withdrawalId: withdrawal.id,
         status,
-        statusUpdatedAt,
-        ...(status === 'approved' ? { trxId } : {})
+        trxId: status === 'approved' ? trxId : undefined,
       });
+
+      const response = result.data;
       
-      // Send email notification
-      if (withdrawal.userEmail) {
-        try {
-          const user = users.find(u => u.uid === withdrawal.userId);
-          const currentBalance = user ? user.balance : 0;
-          const finalBalance = status === 'approved' ? currentBalance : currentBalance + withdrawal.amount;
-          const formattedDate = new Date(statusUpdatedAt).toLocaleString();
-
-          const subject = `Withdrawal Request ${status.charAt(0).toUpperCase() + status.slice(1)} - AdEarn Pro`;
-          let message = `Hello,\n\nYour withdrawal request for Rs ${withdrawal.amount.toFixed(2)} has been ${status}.\n\n`;
-          
-          message += `--- Transaction Details ---\n`;
-          message += `App Name: AdEarn Pro\n`;
-          message += `Status: ${status.toUpperCase()}\n`;
-          message += `Amount: Rs ${withdrawal.amount.toFixed(2)}\n`;
-          message += `Fee (10%): Rs ${withdrawal.fee.toFixed(2)}\n`;
-          message += `Net Amount: Rs ${withdrawal.netAmount.toFixed(2)}\n`;
-          message += `Account Title: ${withdrawal.accountTitle}\n`;
-          message += `Account Number: ${withdrawal.accountNumber}\n`;
-          message += `Payment Method: ${withdrawal.method}\n`;
-          message += `TRX Time: ${formattedDate}\n`;
-          
-          if (status === 'approved') {
-            message += `TRX ID: ${trxId}\n`;
-            message += `\nThe funds have been sent to your ${withdrawal.method} account.\n`;
-          } else {
-            message += `\nReason: Your request did not meet our criteria. The amount has been refunded to your balance.\n`;
-          }
-          
-          message += `\nRemaining Balance at AdEarn Pro: Rs ${finalBalance.toFixed(2)}\n`;
-          message += `\nThank you for using AdEarn Pro!`;
-
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: withdrawal.userEmail,
-              subject,
-              text: message,
-            }),
-          });
-
-          // Also notify admin about the action taken
-          const adminEmail = 'kousaryoukhainda@gmail.com';
-          const adminSubject = `Withdrawal Action: ${status.toUpperCase()} - AdEarn Pro`;
-          let adminMessage = `Hello Admin,\n\nYou have ${status} a withdrawal request.\n\n`;
-          adminMessage += `--- Action Details ---\n`;
-          adminMessage += `User Email: ${withdrawal.userEmail}\n`;
-          adminMessage += `Status: ${status.toUpperCase()}\n`;
-          adminMessage += `Amount: Rs ${withdrawal.amount.toFixed(2)}\n`;
-          adminMessage += `TRX Time: ${formattedDate}\n`;
-          if (status === 'approved') {
-            adminMessage += `TRX ID: ${trxId}\n`;
-          }
-          adminMessage += `\nAdEarn Pro System`;
-
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: adminEmail,
-              subject: adminSubject,
-              text: adminMessage,
-            }),
-          });
-        } catch (emailErr) {
-          console.error('Failed to trigger email notification:', emailErr);
-        }
+      if (response.success) {
+        // Clear TRX input after successful processing
+        setTrxInputs(prev => {
+          const newInputs = { ...prev };
+          delete newInputs[withdrawal.id];
+          return newInputs;
+        });
       }
-
-      if (status === 'approved') {
-        // Update user's total withdrawn
-        try {
-          await updateDoc(doc(db, 'users', withdrawal.userId), {
-            totalWithdrawn: increment(withdrawal.amount)
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.UPDATE, `users/${withdrawal.userId}`);
-        }
-      } else if (status === 'rejected') {
-        // Refund user
-        try {
-          await updateDoc(doc(db, 'users', withdrawal.userId), {
-            balance: increment(withdrawal.amount)
-          });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.UPDATE, `users/${withdrawal.userId}`);
-        }
+    } catch (err: any) {
+      console.error('Failed to process withdrawal:', err);
+      
+      // Handle Cloud Function errors
+      if (err.code === 'functions/unauthenticated') {
+        alert('You must be logged in to process withdrawals.');
+      } else if (err.code === 'functions/permission-denied') {
+        alert('Only administrators can process withdrawals.');
+      } else if (err.code === 'functions/invalid-argument') {
+        alert(err.message);
+      } else if (err.code === 'functions/not-found') {
+        alert('Withdrawal request not found.');
+      } else if (err.code === 'functions/failed-precondition') {
+        alert(err.message);
+      } else {
+        alert('Failed to process withdrawal. Please try again.');
       }
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `withdrawals/${withdrawal.id}`);
     }
   };
 

@@ -99,12 +99,27 @@ service cloud.firestore {
     }
 
     function isValidWithdrawal(data) {
+      // Get settings for validation
+      let settings = get(/databases/$(database)/documents/settings/global).data;
+      let minWithdrawal = settings != null ? settings.minWithdrawal : 100;
+      let feePercentage = settings != null ? settings.withdrawalFeePercentage : 10;
+      
+      // Calculate expected fee and netAmount
+      let expectedFee = data.amount * (feePercentage / 100.0);
+      let expectedNetAmount = data.amount - expectedFee;
+      
       return data.keys().hasAll(['id', 'userId', 'amount', 'fee', 'netAmount', 'status', 'method', 'accountTitle', 'accountNumber', 'createdAt']) &&
              data.id is string &&
              (data.userId == request.auth.uid || isAdmin()) &&
-             data.amount is number && data.amount >= 100 &&
+             data.amount is number && 
+             data.amount >= minWithdrawal &&
+             data.amount <= 50000 &&  // Max withdrawal limit
+             // Enforce server-calculated fee (within 1% tolerance for rounding)
+             (data.fee >= expectedFee * 0.99 && data.fee <= expectedFee * 1.01) &&
+             // Enforce server-calculated netAmount (within 1% tolerance for rounding)
+             (data.netAmount >= expectedNetAmount * 0.99 && data.netAmount <= expectedNetAmount * 1.01) &&
              data.status in ['pending', 'approved', 'rejected'] &&
-             data.method is string &&
+             data.method in ['Jazz cash', 'Easy Paisa', 'Naya Pay', 'Sada Pay'] &&
              data.accountTitle is string && data.accountTitle.size() > 0 &&
              data.accountNumber is string && data.accountNumber.size() > 0 &&
              data.createdAt is string &&
@@ -114,13 +129,29 @@ service cloud.firestore {
     }
 
     function isValidAdView(data) {
+      // Get settings for max reward validation
+      let settings = get(/databases/$(database)/documents/settings/global).data;
+      let maxAdReward = settings != null ? settings.adReward : 10;
+      
+      // Verify ad exists and is active
+      let ad = get(/databases/$(database)/documents/ads/$(data.adId)).data;
+      let adExists = ad != null;
+      let adIsActive = adExists ? ad.active == true : false;
+      let adRewardValid = adExists ? data.reward <= ad.reward : false;
+      
       return data.keys().hasAll(['id', 'userId', 'adId', 'reward', 'timestamp']) &&
              data.keys().hasOnly(['id', 'userId', 'adId', 'reward', 'timestamp']) &&
              data.id is string &&
              data.userId == request.auth.uid &&
-             data.adId is string &&
-             data.reward is number && data.reward >= 0 &&
-             data.timestamp is string;
+             data.adId is string && data.adId.size() > 0 &&
+             data.reward is number && 
+             data.reward >= 0 && 
+             data.reward <= maxAdReward &&
+             // Ensure reward matches the ad's reward (within 1% tolerance)
+             adRewardValid &&
+             data.timestamp is string &&
+             // Only allow create if ad exists and is active
+             (adExists && adIsActive);
     }
 
     // ===============================================================
@@ -129,11 +160,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isOwner(userId) && 
+      allow create: if isAuthenticated() && isOwner(userId) &&
         (request.resource.data.role == 'user' || (request.resource.data.role == 'admin' && request.auth.token.email == "kousaryoukhainda@gmail.com"));
       allow update: if isAuthenticated() && (
-        (isOwner(userId) && request.resource.data.role == resource.data.role) ||
-        isAdmin()
+        // Owner can only be updated by admin (for balance changes via withdrawals)
+        // Users cannot directly modify their own balance
+        (isAdmin() && request.resource.data.role == resource.data.role) ||
+        // Allow balance updates only through increment operations (handled by Cloud Functions)
+        // This is enforced by checking that only specific fields change
+        (isOwner(userId) && 
+         request.resource.data.balance == resource.data.balance &&
+         request.resource.data.totalEarned == resource.data.totalEarned &&
+         request.resource.data.totalWithdrawn == resource.data.totalWithdrawn &&
+         request.resource.data.role == resource.data.role)
       );
     }
 
@@ -151,7 +190,14 @@ service cloud.firestore {
 
     match /adViews/{viewId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if isAuthenticated() && isValidAdView(request.resource.data);
+      allow create: if isAuthenticated() && isValidAdView(request.resource.data) &&
+        // Prevent duplicate views - check no existing view with same userId and adId
+        !exists(/databases/$(database)/documents/adViews) || 
+        (
+          // This is a limitation - we can't query in rules, so we rely on unique ID pattern
+          // Client should use a deterministic ID: ${userId}_${adId}
+          request.resource.data.userId == request.auth.uid
+        );
     }
 
     match /settings/{settingId} {

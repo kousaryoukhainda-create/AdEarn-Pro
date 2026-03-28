@@ -3,7 +3,8 @@ import { UserProfile, Withdrawal } from '../types';
 import { motion } from 'motion/react';
 import { Wallet, DollarSign, History, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, setDoc, query, where, onSnapshot, orderBy, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { AppSettings } from '../types';
@@ -22,6 +23,15 @@ export default function Withdraw({ user }: WithdrawProps) {
   const [success, setSuccess] = useState(false);
   const [history, setHistory] = useState<Withdrawal[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  // Initialize Cloud Functions
+  const functions = getFunctions();
+  const requestWithdrawalFn = httpsCallable<{
+    amount: number;
+    method: string;
+    accountTitle: string;
+    accountNumber: string;
+  }, { success: boolean; withdrawalId?: string; message?: string }>(functions, 'requestWithdrawal');
 
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -51,9 +61,9 @@ export default function Withdraw({ user }: WithdrawProps) {
     setSuccess(false);
 
     const minWithdrawal = settings?.minWithdrawal || 100;
-    const feePercentage = settings?.withdrawalFeePercentage || 10;
-
     const withdrawAmount = parseFloat(amount);
+
+    // Client-side validation (for UX, server will re-validate)
     if (isNaN(withdrawAmount) || withdrawAmount < minWithdrawal) {
       setError(`Minimum withdrawal amount is Rs ${minWithdrawal}`);
       return;
@@ -69,78 +79,38 @@ export default function Withdraw({ user }: WithdrawProps) {
       return;
     }
 
-    const fee = withdrawAmount * (feePercentage / 100);
-    const netAmount = withdrawAmount - fee;
-
     setLoading(true);
     try {
-      // 1. Create withdrawal request
-      const withdrawRef = doc(collection(db, 'withdrawals'));
-      const withdrawalData: Withdrawal = {
-        id: withdrawRef.id,
-        userId: user.uid,
-        userEmail: user.email,
+      // Call Cloud Function for server-side validation and processing
+      const result = await requestWithdrawalFn({
         amount: withdrawAmount,
-        fee,
-        netAmount,
-        status: 'pending',
         method,
-        accountTitle,
-        accountNumber,
-        createdAt: new Date().toISOString(),
-      };
-      await setDoc(withdrawRef, withdrawalData);
+        accountTitle: accountTitle.trim(),
+        accountNumber: accountNumber.trim(),
+      });
 
-      // 2. Send admin notification
-      try {
-        const adminEmail = 'kousaryoukhainda@gmail.com';
-        const subject = `NEW Withdrawal Request - AdEarn Pro`;
-        let message = `Hello Admin,\n\nA new withdrawal request has been received on AdEarn Pro.\n\n`;
-        
-        message += `--- Request Details ---\n`;
-        message += `User Email: ${user.email}\n`;
-        message += `Amount: Rs ${withdrawAmount.toFixed(2)}\n`;
-        message += `Fee (10%): Rs ${fee.toFixed(2)}\n`;
-        message += `Net Amount: Rs ${netAmount.toFixed(2)}\n`;
-        message += `Account Title: ${accountTitle}\n`;
-        message += `Account Number: ${accountNumber}\n`;
-        message += `Payment Method: ${method}\n`;
-        message += `Time: ${new Date().toLocaleString()}\n`;
-        
-        message += `\nPlease login to the Admin Panel to review and process this request.\n`;
-        message += `\nAdEarn Pro System`;
-
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: adminEmail,
-            subject,
-            text: message,
-          }),
-        });
-      } catch (emailErr) {
-        console.error('Failed to trigger admin notification:', emailErr);
+      const response = result.data;
+      
+      if (response.success) {
+        setSuccess(true);
+        setAmount('');
+        setAccountTitle('');
+        setAccountNumber('');
+      } else {
+        setError('Failed to process withdrawal. Please try again.');
       }
-
-      // 3. Deduct from balance
-      const userRef = doc(db, 'users', user.uid);
-      try {
-        await updateDoc(userRef, {
-          balance: increment(-withdrawAmount),
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-      }
-
-      setSuccess(true);
-      setAmount('');
-      setAccountTitle('');
-      setAccountNumber('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Withdrawal failed:', err);
-      if (err instanceof Error && err.message.includes('{')) {
-        setError('Database permission error. Please contact support.');
+      
+      // Handle Cloud Function errors
+      if (err.code === 'functions/unauthenticated') {
+        setError('You must be logged in to make a withdrawal request.');
+      } else if (err.code === 'functions/invalid-argument') {
+        setError(err.message);
+      } else if (err.code === 'functions/failed-precondition') {
+        setError(err.message);
+      } else if (err.code === 'functions/permission-denied') {
+        setError('You do not have permission to perform this action.');
       } else {
         setError('Failed to process withdrawal. Please try again.');
       }

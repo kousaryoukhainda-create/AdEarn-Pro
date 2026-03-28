@@ -3,8 +3,7 @@ import { Ad, UserProfile, AdView } from '../types';
 import { motion } from 'motion/react';
 import { X, Clock, CheckCircle2, AlertCircle, DollarSign, Wallet, ExternalLink } from 'lucide-react';
 import { getEmbedUrl } from '../lib/utils';
-import { db } from '../firebase';
-import { doc, updateDoc, increment, setDoc, collection, runTransaction } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface AdPlayerProps {
@@ -21,6 +20,12 @@ export default function AdPlayer({ ad, user, onClose }: AdPlayerProps) {
 
   const [isClaimed, setIsClaimed] = useState(false);
   const [isLaunched, setIsLaunched] = useState(false);
+
+  // Initialize Cloud Functions
+  const functions = getFunctions();
+  const claimAdRewardFn = httpsCallable<{
+    adId: string;
+  }, { success: boolean; reward?: number; message?: string }>(functions, 'claimAdReward');
 
   useEffect(() => {
     if (isLaunched && timeLeft > 0 && !isClaimed) {
@@ -42,36 +47,33 @@ export default function AdPlayer({ ad, user, onClose }: AdPlayerProps) {
     setError(null);
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', user.uid);
-        const viewRef = doc(collection(db, 'adViews'));
-        
-        const viewData: AdView = {
-          id: viewRef.id,
-          userId: user.uid,
-          adId: ad.id,
-          reward: ad.reward,
-          timestamp: new Date().toISOString(),
-        };
+      // Call Cloud Function for server-side validation and reward claiming
+      const result = await claimAdRewardFn({ adId: ad.id });
+      const response = result.data;
 
-        // 1. Record the ad view
-        transaction.set(viewRef, viewData);
-
-        // 2. Update user balance
-        transaction.update(userRef, {
-          balance: increment(ad.reward),
-          totalEarned: increment(ad.reward),
-        });
-      });
-
-      setIsClaimed(true);
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-    } catch (err) {
+      if (response.success) {
+        setIsClaimed(true);
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        setError('Failed to claim reward. Please try again.');
+        setIsClaiming(false);
+      }
+    } catch (err: any) {
       console.error('Failed to claim reward:', err);
-      if (err instanceof Error && err.message.includes('{')) {
-        setError('Database permission error. Please contact support.');
+      
+      // Handle Cloud Function errors
+      if (err.code === 'functions/unauthenticated') {
+        setError('You must be logged in to claim rewards.');
+      } else if (err.code === 'functions/invalid-argument') {
+        setError(err.message);
+      } else if (err.code === 'functions/not-found') {
+        setError('Advertisement not found.');
+      } else if (err.code === 'functions/failed-precondition') {
+        setError(err.message);
+      } else if (err.code === 'functions/already-exists') {
+        setError('You have already watched this advertisement.');
       } else {
         setError('Failed to claim reward. Please try again.');
       }

@@ -1,0 +1,30 @@
+{
+  "name": "adearn-pro-functions",
+  "version": "1.0.0",
+  "description": "Cloud Functions for AdEarn Pro - Server-side validation",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^6.0.0",
+    "nodemailer": "^8.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/nodemailer": "^7.0.4",
+    "firebase-functions-test": "^3.0.0",
+    "typescript": "^5.8.2"
+  },
+  "private": true
+}
