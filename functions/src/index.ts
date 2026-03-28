@@ -7,6 +7,34 @@ admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Verify if user is admin using custom claims
+ */
+const isAdmin = async (uid: string): Promise<boolean> => {
+  const userRecord = await auth.getUser(uid);
+  return userRecord.customClaims?.admin === true;
+};
+
+/**
+ * Verify authentication and return user info
+ */
+const verifyAuth = (context: functions.https.CallableContext) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'You must be logged in to perform this action.'
+    );
+  }
+  return {
+    uid: context.auth.uid,
+    email: context.auth.token.email || '',
+  };
+};
+
 // Email transporter
 const createTransporter = () => {
   const smtpHost = process.env.SMTP_HOST;
@@ -385,18 +413,11 @@ export interface ProcessWithdrawalResponse {
 export const processWithdrawal = functions.https.onCall(
   async (data: ProcessWithdrawalRequest, context): Promise<ProcessWithdrawalResponse> => {
     // Authentication check
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        'unauthenticated',
-        'You must be logged in to process withdrawals.'
-      );
-    }
+    const { uid } = verifyAuth(context);
 
-    // Admin check
-    const userDoc = await db.doc(`users/${context.auth.uid}`).get();
-    const userData = userDoc.data();
-    
-    if (!userData || userData.role !== 'admin') {
+    // Admin check using custom claims
+    const adminCheck = await isAdmin(uid);
+    if (!adminCheck) {
       throw new functions.https.HttpsError(
         'permission-denied',
         'Only administrators can process withdrawals.'

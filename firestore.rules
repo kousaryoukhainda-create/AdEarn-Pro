@@ -70,10 +70,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.email == "kousaryoukhainda@gmail.com" ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+      return isAuthenticated() && request.auth.token.admin == true;
     }
 
     function isValidUser(data) {
@@ -161,7 +158,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && isOwner(userId) &&
-        (request.resource.data.role == 'user' || (request.resource.data.role == 'admin' && request.auth.token.email == "kousaryoukhainda@gmail.com"));
+        (request.resource.data.role == 'user' || (request.resource.data.role == 'admin' && request.auth.token.admin == true));
       allow update: if isAuthenticated() && (
         // Owner can only be updated by admin (for balance changes via withdrawals)
         // Users cannot directly modify their own balance

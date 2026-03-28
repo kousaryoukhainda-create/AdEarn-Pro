@@ -38,6 +38,9 @@ export default function App() {
       }
 
       if (firebaseUser) {
+        // Force token refresh to get latest custom claims
+        await firebaseUser.getIdTokenResult(true);
+        
         const userRef = doc(db, 'users', firebaseUser.uid);
         unsubProfile = onSnapshot(userRef, (docSnap) => {
           console.log('User Snapshot received. Exists:', docSnap.exists(), 'Data:', docSnap.data());
@@ -48,13 +51,17 @@ export default function App() {
             setLoading(false);
           } else {
             console.log('User document does not exist, creating new profile for:', firebaseUser.email);
+            // Get ID token result to check admin claims
+            const idTokenResult = await firebaseUser.getIdTokenResult();
+            const isAdminClaim = idTokenResult.claims.admin === true;
+            
             const newUser: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               balance: 0,
               totalEarned: 0,
               totalWithdrawn: 0,
-              role: (firebaseUser.email === 'kousaryoukhainda@gmail.com' && firebaseUser.emailVerified) ? 'admin' : 'user',
+              role: isAdminClaim ? 'admin' : 'user',
               createdAt: new Date().toISOString(),
             };
             setDoc(userRef, newUser)

@@ -28,13 +28,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ firebaseUser, loading: true });
 
       if (firebaseUser) {
+        // Force token refresh to get latest custom claims
+        await firebaseUser.getIdTokenResult(true);
+        const idTokenResult = await firebaseUser.getIdTokenResult();
+        const isAdminClaim = idTokenResult.claims.admin === true;
+        
         // Listen to user profile changes
         const userRef = doc(firestore, 'users', firebaseUser.uid);
         const unsubscribeProfile = onSnapshot(
           userRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              set({ user: docSnap.data() as UserProfile, loading: false });
+              const userData = docSnap.data() as UserProfile;
+              // Use custom claims as source of truth for admin status
+              userData.role = isAdminClaim ? 'admin' : 'user';
+              set({ user: userData, loading: false });
             } else {
               // Create new user profile
               const newUser: UserProfile = {
@@ -43,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 balance: 0,
                 totalEarned: 0,
                 totalWithdrawn: 0,
-                role: firebaseUser.email === 'kousaryoukhainda@gmail.com' && firebaseUser.emailVerified ? 'admin' : 'user',
+                role: isAdminClaim ? 'admin' : 'user',
                 createdAt: new Date().toISOString(),
               };
               
