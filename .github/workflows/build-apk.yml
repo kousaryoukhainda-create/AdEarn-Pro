@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  build-debug-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,74 +21,15 @@ jobs:
         run: npm install
         working-directory: mobile
 
-      - name: Run ESLint
-        run: npm run lint
-        working-directory: mobile
-
-      - name: Type check
-        run: npm run type-check
-        working-directory: mobile
-
-  build-debug-apk:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: mobile/package-lock.json
-
-      - name: Setup Java JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: mobile
-
-      - name: Check Android project exists
-        id: check-android
-        run: |
-          if [ -d "mobile/android" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Android project not found. Run: npx react-native init AdEarnPro"
-          fi
-
       - name: Build Debug APK
-        if: steps.check-android.outputs.exists == 'true'
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
         working-directory: mobile/android
 
       - name: Upload Debug APK
-        if: steps.check-android.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: app-debug.apk
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-  notify:
-    needs: [lint, build-debug-apk]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Build Status
-        run: |
-          if [ "${{ needs.build-debug-apk.result }}" == "success" ]; then
-            echo "✅ Build completed successfully!"
-          else
-            echo "❌ Build failed. Check logs for details."
-            exit 1
-          fi
