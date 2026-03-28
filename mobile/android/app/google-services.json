@@ -1,0 +1,42 @@
+{
+  "project_id": "gen-lang-client-0553826491",
+  "app_id": "1:91077653322:android:2d0fbbeac9006bcf4587b3",
+  "api_key": "AIzaSyDZADP5Flcgjl-0GM5nTcnKOzHxUAkY0ZM",
+  "auth_domain": "gen-lang-client-0553826491.firebaseapp.com",
+  "firestore_database_id": "ai-studio-1c225326-2263-4df6-97b6-296ae67323f1",
+  "storage_bucket": "gen-lang-client-0553826491.firebasestorage.app",
+  "messaging_sender_id": "91077653322",
+  "measurement_id": "",
+  "analytics_service_id": "",
+  "admob_app_id": "",
+  "crashlytics_android_resources_id": "",
+  "google_api_key": "AIzaSyDZADP5Flcgjl-0GM5nTcnKOzHxUAkY0ZM",
+  "firebase_crashlytics_api_key": "",
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:91077653322:android:2d0fbbeac9006bcf4587b3",
+        "android_client_info": {
+          "package_name": "com.adearnpro.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "91077653322-EXAMPLE_CLIENT_ID.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZADP5Flcgjl-0GM5nTcnKOzHxUAkY0ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

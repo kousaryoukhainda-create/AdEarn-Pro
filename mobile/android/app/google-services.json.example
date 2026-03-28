@@ -1,0 +1,38 @@
+{
+  "project_id": "YOUR_FIREBASE_PROJECT_ID",
+  "app_id": "1:YOUR_SENDER_ID:android:YOUR_ANDROID_APP_ID",
+  "api_key": "YOUR_API_KEY",
+  "auth_domain": "YOUR_PROJECT_ID.firebaseapp.com",
+  "firestore_database_id": "YOUR_DATABASE_ID",
+  "storage_bucket": "YOUR_PROJECT_ID.firebasestorage.app",
+  "messaging_sender_id": "YOUR_SENDER_ID",
+  "measurement_id": "YOUR_MEASUREMENT_ID",
+  "google_api_key": "YOUR_API_KEY",
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_SENDER_ID:android:YOUR_ANDROID_APP_ID",
+        "android_client_info": {
+          "package_name": "com.adearnpro.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "YOUR_SENDER_ID-YOUR_CLIENT_ID.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "YOUR_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
