@@ -16,4 +16,8 @@
     <color name="black">#000000</color>
     <color name="darkBg">#050505</color>
     <color name="darkSurface">#0a0a0a</color>
+
+    <!-- Launcher icon colors -->
+    <color name="ic_launcher_background">#050505</color>
+    <color name="ic_launcher_foreground">#d4af37</color>
 </resources>
